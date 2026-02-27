@@ -19,6 +19,57 @@ function isReelUrl(text: string): boolean {
   }
 }
 
+function stripMarkdown(text: string): string {
+  return text.replace(/\*\*/g, "")
+}
+
+function formatSummary(raw?: string): string {
+  if (!raw) return ""
+
+  const lines = raw.split(/\r?\n/)
+  const formatted: string[] = []
+
+  for (const line of lines) {
+    const trimmed = line.trim()
+
+    if (!trimmed) {
+      formatted.push("")
+      continue
+    }
+
+    // Lines like: *   **Day 1: Coastal Vistas & Headland Exploration**
+    const dayMatch = trimmed.match(/^\*\s*\*\*(Day\s*\d+[^*]*?)\*\*/i)
+    if (dayMatch) {
+      if (formatted.length && formatted[formatted.length - 1] !== "") {
+        formatted.push("")
+      }
+      formatted.push(dayMatch[1].toUpperCase())
+      continue
+    }
+
+    // Standalone bold headings like: **Budget Estimate for your 3-Day Trip:**
+    const headingMatch = trimmed.match(/^\*\*\s*(.+?)\s*\*\*:?$/)
+    if (headingMatch) {
+      if (formatted.length && formatted[formatted.length - 1] !== "") {
+        formatted.push("")
+      }
+      formatted.push(headingMatch[1].toUpperCase())
+      continue
+    }
+
+    // Generic bullet lines starting with *
+    if (trimmed.startsWith("*")) {
+      const withoutBullet = trimmed.replace(/^\*\s*/, "")
+      formatted.push(`- ${stripMarkdown(withoutBullet)}`)
+      continue
+    }
+
+    formatted.push(stripMarkdown(trimmed))
+  }
+
+  return formatted.join("\n")
+}
+
 export function ChatContainer() {
   const [messages, setMessages] = useState<Message[]>(() => [
     {
@@ -110,7 +161,7 @@ export function ChatContainer() {
       }
 
       const botText =
-        (data.summary ?? "").trim() ||
+        formatSummary(data.summary) ||
         "I couldn't generate a summary for that reel. Please try another link."
 
       const botMessage: Message = {
